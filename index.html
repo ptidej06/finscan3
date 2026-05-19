@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+
+  <!-- ═══ PWA META ESSENTIELS ═══ -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="FinScan" />
+  <meta name="theme-color" content="#0a0a0f" />
+  <meta name="description" content="Photographiez vos tickets et factures. L'IA classe, détecte les dépenses inutiles et prédit vos fins de mois." />
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="FinScan — Scanner de factures IA" />
+  <meta property="og:description" content="Photographiez vos tickets. L'IA fait le reste." />
+  <meta property="og:type" content="website" />
+
+  <!-- Manifest PWA -->
+  <link rel="manifest" href="manifest.json" />
+
+  <!-- Apple touch icons (fallback SVG inline) -->
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect width='180' height='180' rx='40' fill='%230a0a0f'/><text y='130' x='15' font-size='130'>💸</text></svg>" />
+
+  <!-- Apple splash screens (safe area) -->
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+  <title>FinScan — Scanner de factures</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&family=DM+Mono:wght@500;700&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ── Reset & base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0a0a0f;
+      --surface:   #12121a;
+      --card:      #1a1a26;
+      --border:    #2a2a40;
+      --accent:    #6ee7b7;
+      --accent-dim:#2d6a54;
+      --warn:      #fbbf24;
+      --danger:    #f87171;
+      --muted:     #4a4a6a;
+      --text:      #e8e8f0;
+      --text-sub:  #8888aa;
+
+      /* Safe area pour iPhone notch/home indicator */
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior: none;
+    }
+
+    #app {
+      min-height: 100vh;
+      min-height: 100dvh; /* dynamic viewport height pour mobile */
+      display: flex;
+      flex-direction: column;
+      padding-bottom: calc(80px + var(--sab));
+    }
+
+    /* ── Header ── */
+    .header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: calc(var(--sat) + 16px) 20px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+
+    .logo-icon {
+      width: 38px; height: 38px; border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent), #3b82f6);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; flex-shrink: 0;
+    }
+
+    .header-title { font-weight: 800; font-size: 17px; letter-spacing: -0.5px; }
+    .header-sub   { font-size: 11px; color: var(--text-sub); }
+
+    .badge-warn {
+      margin-left: auto;
+      background: rgba(251,191,36,.15);
+      border: 1px solid rgba(251,191,36,.4);
+      color: var(--warn);
+      border-radius: 99px; padding: 4px 12px;
+      font-size: 12px; font-weight: 700;
+      white-space: nowrap;
+    }
+
+    /* ── Install banner ── */
+    .install-banner {
+      background: linear-gradient(135deg, var(--accent-dim), #1e3a8a);
+      border-bottom: 1px solid var(--accent);
+      padding: 12px 20px;
+      display: flex; align-items: center; gap: 12px;
+      animation: slideDown .4s ease;
+    }
+    .install-banner .ib-text { flex: 1; font-size: 13px; font-weight: 600; color: var(--accent); }
+    .install-banner .ib-sub  { font-size: 11px; color: rgba(110,231,183,.7); margin-top: 2px; }
+    .install-banner button   { background: var(--accent); color: #0a0a0f; border: none; border-radius: 8px; padding: 8px 14px; font-weight: 700; font-size: 13px; cursor: pointer; white-space: nowrap; }
+    .install-banner .ib-close{ background: none; border: none; color: var(--accent); font-size: 18px; cursor: pointer; padding: 0 4px; }
+
+    /* ── Tabs ── */
+    .tabs {
+      display: flex;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .tabs::-webkit-scrollbar { display: none; }
+
+    .tab {
+      flex: 1; min-width: 0;
+      padding: 14px 8px 12px;
+      border: none; border-bottom: 2px solid transparent;
+      background: none; color: var(--text-sub);
+      font-size: 12px; font-weight: 600; font-family: 'DM Sans', sans-serif;
+      cursor: pointer; transition: all .2s;
+      white-space: nowrap; text-align: center;
+    }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab-icon { font-size: 18px; display: block; margin-bottom: 3px; }
+
+    /* ── Content ── */
+    .content {
+      flex: 1;
+      padding: 20px 16px;
+      max-width: 600px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    .card-title { font-weight: 700; font-size: 15px; margin-bottom: 16px; }
+
+    /* ── Stat grid ── */
+    .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+    .stat-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 16px 12px;
+    }
+    .stat-icon  { font-size: 20px; margin-bottom: 6px; }
+    .stat-value { font-family: 'DM Mono', monospace; font-size: 20px; font-weight: 800; line-height: 1; }
+    .stat-label { font-size: 11px; color: var(--text-sub); margin-top: 4px; }
+    .stat-sub   { font-size: 10px; color: var(--muted); margin-top: 3px; }
+
+    /* ── Progress bar ── */
+    .progress-track { background: var(--border); border-radius: 99px; height: 6px; overflow: hidden; }
+    .progress-fill  { height: 100%; border-radius: 99px; transition: width .6s cubic-bezier(.4,0,.2,1); }
+
+    /* ── Category bars ── */
+    .cat-row { margin-bottom: 14px; }
+    .cat-head { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13px; color: var(--text-sub); }
+    .cat-amount { font-family: 'DM Mono', monospace; font-weight: 700; color: var(--text); font-size: 13px; }
+
+    /* ── Upload zone ── */
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: 20px;
+      padding: 40px 24px;
+      text-align: center;
+      cursor: pointer;
+      background: var(--card);
+      transition: all .25s;
+      margin-bottom: 16px;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    .upload-zone.drag { border-color: var(--accent); background: rgba(110,231,183,.06); }
+    .upload-zone.loading { cursor: not-allowed; }
+    .upload-icon  { font-size: 48px; margin-bottom: 14px; }
+    .upload-title { font-weight: 700; font-size: 17px; margin-bottom: 8px; }
+    .upload-sub   { color: var(--text-sub); font-size: 13px; }
+    .upload-btn   {
+      display: inline-block; margin-top: 18px;
+      background: rgba(110,231,183,.12); border: 1px solid rgba(110,231,183,.35);
+      color: var(--accent); border-radius: 99px; padding: 10px 22px;
+      font-size: 14px; font-weight: 700;
+    }
+
+    /* Camera button (mobile) */
+    .camera-btn {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      width: 100%; padding: 16px; margin-top: 12px;
+      background: linear-gradient(135deg, var(--accent-dim), #1e3a8a);
+      border: 1px solid var(--accent);
+      border-radius: 14px; color: var(--accent);
+      font-size: 15px; font-weight: 700; font-family: 'DM Sans', sans-serif;
+      cursor: pointer; transition: opacity .2s;
+    }
+    .camera-btn:active { opacity: .7; }
+
+    /* ── Spinner ── */
+    .spinner {
+      width: 44px; height: 44px; border-radius: 50%;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      animation: spin .8s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Error box ── */
+    .error-box {
+      background: rgba(248,113,113,.1);
+      border: 1px solid rgba(248,113,113,.35);
+      border-radius: 12px; padding: 14px 16px;
+      color: var(--danger); font-size: 14px;
+      margin-bottom: 16px;
+    }
+
+    /* ── Invoice card ── */
+    .invoice-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 16px;
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 10px;
+      position: relative; overflow: hidden;
+      transition: transform .15s;
+    }
+    .invoice-card:active { transform: scale(.99); }
+    .invoice-card.suspect { border-color: rgba(251,191,36,.4); }
+
+    .badge-tag {
+      position: absolute; top: 0; right: 0;
+      font-size: 9px; font-weight: 800; padding: 3px 10px;
+      border-bottom-left-radius: 8px; letter-spacing: .5px;
+    }
+    .badge-suspect   { background: var(--warn); color: #000; }
+    .badge-recurring { background: var(--accent-dim); color: var(--accent); top: 20px; }
+
+    .inv-thumb {
+      width: 44px; height: 44px; border-radius: 8px;
+      object-fit: cover; flex-shrink: 0;
+      border: 1px solid var(--border);
+    }
+
+    .cat-bubble {
+      width: 38px; height: 38px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; flex-shrink: 0;
+    }
+
+    .inv-info { flex: 1; min-width: 0; }
+    .inv-merchant { font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .inv-meta     { font-size: 11px; color: var(--text-sub); margin-top: 2px; }
+    .inv-warn-reason { font-size: 11px; color: var(--warn); margin-top: 4px; }
+
+    .inv-right { text-align: right; flex-shrink: 0; }
+    .inv-amount { font-family: 'DM Mono', monospace; font-weight: 800; font-size: 17px; }
+    .inv-delete { background: none; border: none; color: var(--muted); font-size: 11px; cursor: pointer; margin-top: 4px; padding: 0; font-family: 'DM Sans', sans-serif; }
+
+    /* ── Alert card ── */
+    .alert-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 14px; border-radius: 10px;
+      background: rgba(251,191,36,.05);
+      border: 1px solid rgba(251,191,36,.2);
+      margin-bottom: 8px;
+    }
+    .alert-merchant { font-weight: 600; font-size: 14px; }
+    .alert-reason   { font-size: 11px; color: var(--text-sub); margin-top: 2px; }
+    .alert-amount   { font-family: 'DM Mono', monospace; font-weight: 700; color: var(--warn); font-size: 15px; }
+
+    /* ── Feature grid ── */
+    .feature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .feature-item {
+      padding: 14px; background: var(--surface);
+      border-radius: 10px; border: 1px solid var(--border);
+    }
+    .feature-icon  { font-size: 22px; margin-bottom: 6px; }
+    .feature-title { font-weight: 600; font-size: 13px; }
+    .feature-desc  { font-size: 11px; color: var(--text-sub); margin-top: 3px; }
+
+    /* ── Bottom nav ── */
+    .bottom-nav {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      display: flex;
+      padding-bottom: var(--sab);
+      z-index: 100;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+    .nav-item {
+      flex: 1; display: flex; flex-direction: column; align-items: center;
+      padding: 10px 4px 8px;
+      background: none; border: none; cursor: pointer;
+      color: var(--muted); font-size: 10px; font-weight: 600;
+      font-family: 'DM Sans', sans-serif;
+      transition: color .2s;
+    }
+    .nav-item.active { color: var(--accent); }
+    .nav-icon { font-size: 22px; margin-bottom: 3px; display: block; }
+
+    /* ── Scan FAB (centre nav) ── */
+    .nav-scan {
+      width: 52px; height: 52px; border-radius: 16px; margin-top: -14px;
+      background: linear-gradient(135deg, var(--accent), #3b82f6);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px; box-shadow: 0 4px 20px rgba(110,231,183,.4);
+      transition: transform .15s, box-shadow .15s;
+      border: none; cursor: pointer;
+    }
+    .nav-scan:active { transform: scale(.92); box-shadow: 0 2px 10px rgba(110,231,183,.3); }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed; bottom: calc(80px + var(--sab) + 12px); left: 50%; transform: translateX(-50%);
+      background: var(--card); border-radius: 99px;
+      padding: 12px 24px; font-size: 14px; font-weight: 600;
+      box-shadow: 0 8px 32px rgba(0,0,0,.5); z-index: 999;
+      white-space: nowrap; animation: fadeUp .3s ease;
+    }
+    .toast.success { border: 1px solid rgba(110,231,183,.5); color: var(--accent); }
+    .toast.warn    { border: 1px solid rgba(251,191,36,.5);  color: var(--warn); }
+
+    /* ── Empty state ── */
+    .empty { text-align: center; padding: 60px 20px; color: var(--text-sub); }
+    .empty-icon { font-size: 52px; margin-bottom: 14px; }
+    .empty-action {
+      margin-top: 18px; display: inline-block;
+      background: rgba(110,231,183,.12); border: 1px solid rgba(110,231,183,.35);
+      color: var(--accent); border-radius: 99px; padding: 10px 22px;
+      font-size: 14px; font-weight: 700; cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+    }
+
+    /* ── iOS install instructions ── */
+    .ios-install {
+      background: var(--card); border: 1px solid var(--accent);
+      border-radius: 16px; padding: 20px;
+      text-align: center; margin-bottom: 16px;
+    }
+    .ios-steps { text-align: left; margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
+    .ios-step  { display: flex; gap: 10px; font-size: 14px; align-items: flex-start; }
+    .ios-step-num { background: var(--accent); color: #000; width: 22px; height: 22px; border-radius: 99px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12px; flex-shrink: 0; margin-top: 1px; }
+
+    @keyframes fadeUp   { from { opacity:0; transform:translateX(-50%) translateY(10px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }
+    @keyframes slideDown{ from { opacity:0; transform:translateY(-10px); } to { opacity:1; transform:translateY(0); } }
+  </style>
+</head>
+<body>
+<div id="app"></div>
+
+<!-- Hidden file inputs -->
+<input type="file" id="fileInput"   accept="image/*"          style="display:none" />
+<input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none" />
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════
+const STORAGE_KEY = "finscan_invoices_v1";
+
+const CATEGORIES = {
+  "Alimentation": { icon: "🛒", color: "#34d399" },
+  "Abonnement":   { icon: "📱", color: "#a78bfa" },
+  "Transport":    { icon: "🚗", color: "#60a5fa" },
+  "Santé":        { icon: "💊", color: "#f472b6" },
+  "Loisirs":      { icon: "🎮", color: "#fb923c" },
+  "Logement":     { icon: "🏠", color: "#facc15" },
+  "Restauration": { icon: "🍕", color: "#f87171" },
+  "Shopping":     { icon: "👜", color: "#c084fc" },
+  "Autre":        { icon: "📄", color: "#94a3b8" },
+};
+
+let state = {
+  tab: "dashboard",
+  loading: false,
+  error: null,
+  toast: null,
+  toastTimer: null,
+  deferredInstall: null,
+  showInstallBanner: false,
+  showIOSInstall: false,
+  invoices: loadInvoices(),
+};
+
+function loadInvoices() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) return JSON.parse(saved);
+  } catch(e) {}
+  // Données démo
+  return [
+    { id:1, merchant:"Netflix",      amount:15.99, category:"Abonnement",   date:"2024-01-10", is_recurring:true,  is_suspicious:false, suspicion_reason:null },
+    { id:2, merchant:"Franprix",     amount:67.40, category:"Alimentation", date:"2024-01-12", is_recurring:false, is_suspicious:false, suspicion_reason:null },
+    { id:3, merchant:"Spotify",      amount:9.99,  category:"Abonnement",   date:"2024-01-08", is_recurring:true,  is_suspicious:false, suspicion_reason:null },
+    { id:4, merchant:"Amazon Prime", amount:6.99,  category:"Abonnement",   date:"2024-01-05", is_recurring:true,  is_suspicious:true,  suspicion_reason:"Plusieurs abonnements streaming similaires actifs" },
+    { id:5, merchant:"Uber Eats",    amount:43.20, category:"Restauration", date:"2024-01-13", is_recurring:false, is_suspicious:true,  suspicion_reason:"3ème commande cette semaine — dépense inhabituelle" },
+  ];
+}
+
+function saveInvoices() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.invoices)); } catch(e) {}
+}
+
+let nextId = Math.max(0, ...state.invoices.map(i => i.id)) + 1;
+
+// ═══════════════════════════════════════════════════════
+//  RENDER
+// ═══════════════════════════════════════════════════════
+function render() {
+  document.getElementById("app").innerHTML = buildApp();
+  bindEvents();
+}
+
+function buildApp() {
+  const suspicious = state.invoices.filter(i => i.is_suspicious);
+  return `
+    <div class="header">
+      <div class="logo-icon">💸</div>
+      <div>
+        <div class="header-title">FinScan</div>
+        <div class="header-sub">Scanner de factures IA</div>
+      </div>
+      ${suspicious.length ? `<div class="badge-warn">⚠ ${suspicious.length} alerte${suspicious.length>1?'s':''}</div>` : ''}
+    </div>
+
+    ${state.showInstallBanner ? buildInstallBanner() : ''}
+
+    ${buildContent()}
+
+    <nav class="bottom-nav">
+      <button class="nav-item ${state.tab==='dashboard'?'active':''}" data-tab="dashboard">
+        <span class="nav-icon">📊</span>Budget
+      </button>
+      <button class="nav-scan" id="scanFab">📸</button>
+      <button class="nav-item ${state.tab==='invoices'?'active':''}" data-tab="invoices">
+        <span class="nav-icon">🗂</span>Docs (${state.invoices.length})
+      </button>
+    </nav>
+
+    ${state.toast ? `<div class="toast ${state.toast.type}">${state.toast.msg}</div>` : ''}
+  `;
+}
+
+function buildInstallBanner() {
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  if (isIOS) {
+    return `
+      <div class="install-banner">
+        <div>
+          <div class="ib-text">📲 Installer FinScan</div>
+          <div class="ib-sub">Appuyez sur ⎋ Partager → "Sur l'écran d'accueil"</div>
+        </div>
+        <button class="ib-close" id="closeBanner">✕</button>
+      </div>`;
+  }
+  return `
+    <div class="install-banner">
+      <div>
+        <div class="ib-text">📲 Installer l'app</div>
+        <div class="ib-sub">Accès hors-ligne, icône sur votre écran</div>
+      </div>
+      <button id="installBtn">Installer</button>
+      <button class="ib-close" id="closeBanner">✕</button>
+    </div>`;
+}
+
+function buildContent() {
+  if (state.tab === 'dashboard') return `<div class="content">${buildDashboard()}</div>`;
+  if (state.tab === 'scan')      return `<div class="content">${buildScan()}</div>`;
+  if (state.tab === 'invoices')  return `<div class="content">${buildInvoices()}</div>`;
+  return '';
+}
+
+// ── Dashboard ──
+function buildDashboard() {
+  const invs = state.invoices;
+  const total = invs.reduce((s,i) => s+(i.amount||0), 0);
+  const recurring = invs.filter(i=>i.is_recurring);
+  const recurringTotal = recurring.reduce((s,i)=>s+(i.amount||0),0);
+  const suspicious = invs.filter(i=>i.is_suspicious);
+
+  const day = new Date().getDate();
+  const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth()+1, 0).getDate();
+  const dailyRate = total / (day||1);
+  const projected = dailyRate * daysInMonth;
+  const BUDGET = 1500;
+  const budgetPct = Math.min((total/BUDGET)*100,100);
+
+  const byCategory = Object.entries(
+    invs.reduce((acc,i)=>{ const c=i.category||'Autre'; acc[c]=(acc[c]||0)+(i.amount||0); return acc; }, {})
+  ).sort((a,b)=>b[1]-a[1]);
+
+  return `
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-icon">💳</div>
+        <div class="stat-value" style="color:var(--accent)">${total.toFixed(0)}€</div>
+        <div class="stat-label">Dépensé</div>
+        <div class="stat-sub">${invs.length} doc${invs.length>1?'s':''}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">↻</div>
+        <div class="stat-value" style="color:#a78bfa">${recurringTotal.toFixed(0)}€</div>
+        <div class="stat-label">Abonnements</div>
+        <div class="stat-sub">${recurring.length} actifs</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">📈</div>
+        <div class="stat-value" style="color:${projected>BUDGET?'var(--danger)':'var(--accent)'}">${projected.toFixed(0)}€</div>
+        <div class="stat-label">Projection</div>
+        <div class="stat-sub">${projected>BUDGET?'⚠ Dépassement':'Budget OK'}</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <span style="font-weight:700">Budget mensuel</span>
+        <span style="font-family:'DM Mono',monospace;font-size:13px;color:var(--text-sub)">${total.toFixed(0)}€ / ${BUDGET}€</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" style="width:${budgetPct}%;background:${budgetPct>80?'var(--danger)':'var(--accent)'}"></div>
+      </div>
+      <div style="margin-top:10px;font-size:12px;color:var(--text-sub)">Jour ${day}/${daysInMonth} · ${dailyRate.toFixed(1)}€/jour</div>
+    </div>
+
+    ${suspicious.length ? `
+    <div class="card" style="border-color:rgba(251,191,36,.3)">
+      <div class="card-title" style="color:var(--warn)">⚠ Dépenses suspectes</div>
+      ${suspicious.map(i=>`
+        <div class="alert-item">
+          <div>
+            <div class="alert-merchant">${i.merchant}</div>
+            <div class="alert-reason">${i.suspicion_reason||''}</div>
+          </div>
+          <div class="alert-amount">${(i.amount||0).toFixed(2)}€</div>
+        </div>
+      `).join('')}
+    </div>` : ''}
+
+    ${byCategory.length ? `
+    <div class="card">
+      <div class="card-title">Répartition par catégorie</div>
+      ${byCategory.map(([cat,amount])=>{
+        const info = CATEGORIES[cat]||CATEGORIES['Autre'];
+        const pct = (amount/total*100);
+        return `
+          <div class="cat-row">
+            <div class="cat-head">
+              <span>${info.icon} ${cat}</span>
+              <span class="cat-amount">${amount.toFixed(2)}€</span>
+            </div>
+            <div class="progress-track"><div class="progress-fill" style="width:${pct}%;background:${info.color}"></div></div>
+          </div>`;
+      }).join('')}
+    </div>` : ''}
+  `;
+}
+
+// ── Scanner ──
+function buildScan() {
+  const isMobile = /iphone|ipad|ipod|android/i.test(navigator.userAgent);
+
+  if (state.loading) {
+    return `
+      <div class="upload-zone loading">
+        <div class="spinner"></div>
+        <div style="color:var(--accent);font-weight:700;font-size:16px">L'IA analyse votre document…</div>
+        <div style="color:var(--text-sub);font-size:13px;margin-top:8px">Montant · Catégorie · Détection d'anomalies</div>
+      </div>`;
+  }
+
+  return `
+    ${state.error ? `<div class="error-box">⚠ ${state.error}</div>` : ''}
+
+    <div class="upload-zone" id="dropZone">
+      <div class="upload-icon">📄</div>
+      <div class="upload-title">Déposez votre document</div>
+      <div class="upload-sub">Ticket · Facture · Abonnement · Reçu</div>
+      <div class="upload-btn" id="browseBtn">Choisir un fichier →</div>
+    </div>
+
+    ${isMobile ? `
+    <button class="camera-btn" id="cameraBtn">
+      <span style="font-size:22px">📸</span>
+      Prendre une photo maintenant
+    </button>` : ''}
+
+    <div class="card">
+      <div class="card-title">🤖 Ce que l'IA détecte</div>
+      <div class="feature-grid">
+        ${[
+          ['💰','Montant','Extrait automatiquement'],
+          ['🏷','Catégorie','9 catégories de dépense'],
+          ['📅','Date','Même manuscrite'],
+          ['↻','Récurrence','Détecte les abonnements'],
+          ['⚠','Anomalies','Signale les dépenses suspectes'],
+          ['📊','Prédiction','Projection fin de mois'],
+        ].map(([icon,title,desc])=>`
+          <div class="feature-item">
+            <div class="feature-icon">${icon}</div>
+            <div class="feature-title">${title}</div>
+            <div class="feature-desc">${desc}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+// ── Invoices ──
+function buildInvoices() {
+  const invs = state.invoices;
+  if (!invs.length) return `
+    <div class="empty">
+      <div class="empty-icon">📂</div>
+      <div>Aucun document scanné</div>
+      <button class="empty-action" data-tab="scan">Scanner mon premier document →</button>
+    </div>`;
+
+  return invs.map(inv => {
+    const cat = CATEGORIES[inv.category]||CATEGORIES['Autre'];
+    const hasSuspect = inv.is_suspicious;
+    const hasRecurring = inv.is_recurring;
+    return `
+      <div class="invoice-card ${hasSuspect?'suspect':''}">
+        ${hasSuspect   ? `<span class="badge-tag badge-suspect">⚠ SUSPECT</span>` : ''}
+        ${hasRecurring ? `<span class="badge-tag badge-recurring" style="${hasSuspect?'top:20px':''}">↻ RÉCURRENT</span>` : ''}
+        ${inv.thumbnail ? `<img class="inv-thumb" src="${inv.thumbnail}" alt="" />` : ''}
+        <div class="cat-bubble" style="background:${cat.color}20">${cat.icon}</div>
+        <div class="inv-info">
+          <div class="inv-merchant">${inv.merchant||'Inconnu'}</div>
+          <div class="inv-meta">${inv.category} · ${inv.date||'date inconnue'}</div>
+          ${hasSuspect&&inv.suspicion_reason ? `<div class="inv-warn-reason">⚠ ${inv.suspicion_reason}</div>` : ''}
+        </div>
+        <div class="inv-right">
+          <div class="inv-amount" style="color:${hasSuspect?'var(--warn)':'var(--accent)'}">${inv.amount!=null?inv.amount.toFixed(2)+'€':'—'}</div>
+          <button class="inv-delete" data-delete="${inv.id}">supprimer</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+//  EVENTS
+// ═══════════════════════════════════════════════════════
+function bindEvents() {
+  // Tabs
+  document.querySelectorAll('[data-tab]').forEach(el => {
+    el.addEventListener('click', () => { state.tab = el.dataset.tab; render(); });
+  });
+
+  // FAB scan
+  const fab = document.getElementById('scanFab');
+  if (fab) fab.addEventListener('click', () => { state.tab='scan'; render(); });
+
+  // Browse file
+  const browseBtn = document.getElementById('browseBtn');
+  const dropZone  = document.getElementById('dropZone');
+  if (browseBtn) browseBtn.addEventListener('click', e => { e.stopPropagation(); document.getElementById('fileInput').click(); });
+  if (dropZone)  dropZone.addEventListener('click', () => document.getElementById('fileInput').click());
+
+  // Camera
+  const camBtn = document.getElementById('cameraBtn');
+  if (camBtn) camBtn.addEventListener('click', e => { e.stopPropagation(); document.getElementById('cameraInput').click(); });
+
+  // Drag & drop
+  if (dropZone) {
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag'));
+    dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag'); handleFile(e.dataTransfer.files[0]); });
+  }
+
+  // Delete
+  document.querySelectorAll('[data-delete]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = parseInt(btn.dataset.delete);
+      state.invoices = state.invoices.filter(i => i.id !== id);
+      saveInvoices();
+      showToast('Document supprimé','warn');
+    });
+  });
+
+  // Install
+  const installBtn = document.getElementById('installBtn');
+  if (installBtn && state.deferredInstall) {
+    installBtn.addEventListener('click', async () => {
+      state.deferredInstall.prompt();
+      const { outcome } = await state.deferredInstall.userChoice;
+      if (outcome === 'accepted') { state.showInstallBanner = false; state.deferredInstall = null; render(); }
+    });
+  }
+  const closeBtn = document.getElementById('closeBanner');
+  if (closeBtn) closeBtn.addEventListener('click', () => { state.showInstallBanner = false; render(); });
+}
+
+// ═══════════════════════════════════════════════════════
+//  FILE HANDLING & AI
+// ═══════════════════════════════════════════════════════
+document.getElementById('fileInput').addEventListener('change', e => handleFile(e.target.files[0]));
+document.getElementById('cameraInput').addEventListener('change', e => handleFile(e.target.files[0]));
+
+async function handleFile(file) {
+  if (!file || !file.type.startsWith('image/')) return;
+  state.loading = true; state.error = null; state.tab = 'scan';
+  render();
+
+  try {
+    const base64 = await toBase64(file);
+    const result = await analyzeInvoice(base64, file.type);
+    const thumb  = URL.createObjectURL(file);
+    state.invoices = [{ id: nextId++, ...result, thumbnail: thumb }, ...state.invoices];
+    saveInvoices();
+    showToast(`✓ "${result.merchant||'Document'}" — ${result.amount?.toFixed(2)??'?'}€`);
+    state.tab = 'invoices';
+  } catch(e) {
+    state.error = "Impossible d'analyser ce document. Essayez avec une image plus nette.";
+    console.error(e);
+  } finally {
+    state.loading = false;
+    render();
+    // Reset inputs
+    document.getElementById('fileInput').value   = '';
+    document.getElementById('cameraInput').value = '';
+  }
+}
+
+function toBase64(file) {
+  return new Promise((res,rej) => {
+    const r = new FileReader();
+    r.onload  = () => res(r.result.split(',')[1]);
+    r.onerror = () => rej(new Error('Lecture échouée'));
+    r.readAsDataURL(file);
+  });
+}
+
+async function analyzeInvoice(base64, mediaType) {
+  const prompt = `Tu es un assistant financier expert. Analyse cette image (ticket de caisse, facture, abonnement ou reçu).
+Réponds UNIQUEMENT avec un objet JSON valide et rien d'autre (pas de markdown, pas de texte avant ou après) :
+{
+  "merchant": "Nom du marchand ou service",
+  "amount": 12.50,
+  "date": "2024-01-15",
+  "category": "exactement une de : Alimentation, Abonnement, Transport, Santé, Loisirs, Logement, Restauration, Shopping, Autre",
+  "is_recurring": false,
+  "is_suspicious": false,
+  "suspicion_reason": null,
+  "description": "Description en 1 phrase"
+}
+Rules: amount doit être un nombre (pas une chaîne). Si tu ne peux pas lire un champ, mets null.
+is_suspicious = true si : abonnement similaire à un autre, montant anormalement élevé pour la catégorie, achats répétés rapprochés.`;
+
+  const res = await fetch('/api/analyze', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1000,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+          { type: 'text', text: prompt }
+        ]
+      }]
+    })
+  });
+
+  const data = await res.json();
+  const text = data.content?.map(b => b.text||'').join('') || '';
+  const clean = text.replace(/```json|```/g,'').trim();
+  return JSON.parse(clean);
+}
+
+// ═══════════════════════════════════════════════════════
+//  TOAST
+// ═══════════════════════════════════════════════════════
+function showToast(msg, type='success') {
+  if (state.toastTimer) clearTimeout(state.toastTimer);
+  state.toast = { msg, type };
+  render();
+  state.toastTimer = setTimeout(() => { state.toast = null; render(); }, 3500);
+}
+
+// ═══════════════════════════════════════════════════════
+//  PWA — Service Worker + Install prompt
+// ═══════════════════════════════════════════════════════
+
+// Enregistrement du Service Worker
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js')
+      .then(reg => console.log('[SW] Registered:', reg.scope))
+      .catch(err => console.warn('[SW] Failed:', err));
+  });
+}
+
+// Capture du prompt d'installation Android/Chrome
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  state.deferredInstall = e;
+  state.showInstallBanner = true;
+  render();
+});
+
+// Détection iOS pour afficher les instructions manuelles
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+const isInStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+if (isIOS && !isInStandalone) {
+  setTimeout(() => { state.showInstallBanner = true; render(); }, 2000);
+}
+
+// ═══════════════════════════════════════════════════════
+//  BOOT
+// ═══════════════════════════════════════════════════════
+render();
+</script>
+</body>
+</html>
